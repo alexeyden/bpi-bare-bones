@@ -1,26 +1,44 @@
 CROSS_COMPILE ?= $(HOME)/x-tools/arm-unknown-eabi/bin/arm-unknown-eabi-
+FLASH_DEV ?= /dev/sdb
 
-AS=$(CROSS_COMPILE)as
-OBJCOPY=$(CROSS_COMPILE)objcopy
+TARGET = main
+SOURCES = boot.s main.c uart.c
 
-.PHONY: all tools clean
+AS := $(CROSS_COMPILE)as
+OBJCOPY := $(CROSS_COMPILE)objcopy
+OBJDUMP := $(CROSS_COMPILE)objdump
+CC := $(CROSS_COMPILE)gcc
 
-all: blinky-spl
+CFLAGS = -fpic \
+         -ffreestanding \
+         -std=gnu99 \
+         -O2 \
+         -Wall \
+         -Wextra \
+         -mcpu=cortex-a7 \
+         -Wl,-Tlinker.ld \
+         -nostartfiles
 
-blinky.elf: blinky.s
-	$(AS) -o blinky.elf blinky.s
+.PHONY: all tools clean flash
 
-blinky: blinky.elf
-	$(OBJCOPY) -O binary blinky.elf blinky.bin
+all: $(TARGET)-spl
+
+$(TARGET)-spl: $(TARGET) tools
+	tools/mksunxiboot $(TARGET).bin $(TARGET)-spl.bin
+
+$(TARGET): $(TARGET).elf
+	$(OBJCOPY) -O binary $(TARGET).elf $(TARGET).bin
+
+$(TARGET).elf: $(SOURCES)
+	$(CC) $(CFLAGS) -o $(TARGET).elf $^
 
 tools:
 	$(MAKE) -C $@
 
-blinky-spl: blinky tools
-	tools/mksunxiboot blinky.bin blinky-spl.bin
+flash:
+	[ -b $(FLASH_DEV) ] && sudo dd if=$(TARGET)-spl.bin of=$(FLASH_DEV) bs=1K seek=8 && sync
 
 clean:
 	$(MAKE) -C tools clean
-	rm *.elf
-	rm *.bin
+	rm -f *.elf *.bin
 
