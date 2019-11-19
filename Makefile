@@ -1,36 +1,23 @@
-CROSS_COMPILE ?= $(HOME)/x-tools/arm-unknown-eabi/bin/arm-unknown-eabi-
+OUTPUT=target/armv7-none-unknown-eabi/release
+TARGET=bpi-bare-bones-rust
+OBJDUMP=$(HOME)/x-tools/arm-unknown-eabi/bin/arm-unknown-eabi-objdump
 FLASH_DEV ?= /dev/sdb
 
-TARGET = main
-SOURCES = boot.s main.c uart.c
+.PHONY: all dump clean tools $(TARGET).bin
 
-AS := $(CROSS_COMPILE)as
-OBJCOPY := $(CROSS_COMPILE)objcopy
-OBJDUMP := $(CROSS_COMPILE)objdump
-CC := $(CROSS_COMPILE)gcc
+all: $(TARGET)-spl.bin
 
-CFLAGS = -fpic \
-         -ffreestanding \
-         -std=gnu99 \
-         -O2 \
-         -Wall \
-         -Wextra \
-         -mcpu=cortex-a7 \
-         -Wl,-Tlinker.ld \
-         -nostartfiles
+$(TARGET).bin:
+	RUSTFLAGS="-C link-arg=-Tlinker.ld" cargo xbuild \
+		--release \
+		--target "armv7-none-unknown-eabi.json"
+	cargo objcopy -- -O binary $(OUTPUT)/$(TARGET) $(TARGET).bin
 
-.PHONY: all tools clean flash
-
-all: $(TARGET)-spl
-
-$(TARGET)-spl: $(TARGET) tools
+$(TARGET)-spl.bin: tools $(TARGET).bin
 	tools/mksunxiboot $(TARGET).bin $(TARGET)-spl.bin
 
-$(TARGET): $(TARGET).elf
-	$(OBJCOPY) -O binary $(TARGET).elf $(TARGET).bin
-
-$(TARGET).elf: $(SOURCES)
-	$(CC) $(CFLAGS) -o $(TARGET).elf $^
+dump:
+	$(OBJDUMP) -D -b binary -marmv7 -EL $(TARGET).bin
 
 tools:
 	$(MAKE) -C $@
@@ -40,5 +27,7 @@ flash:
 
 clean:
 	$(MAKE) -C tools clean
-	rm -f *.elf *.bin
+	rm -f $(TARGET).bin
+	rm -f $(TARGET)-spl.bin
+	cargo clean
 

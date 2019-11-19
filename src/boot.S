@@ -30,7 +30,7 @@ _start:
     add sp, r4, #0x2400
 */
     // r0, r1, r2 are arguments for main
-    bl      main
+    bl      _main
 
     // If main does return for some reason, just catch it and stay here.
 _inf_loop:
