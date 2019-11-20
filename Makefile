@@ -1,7 +1,13 @@
-OUTPUT=target/armv7-none-unknown-eabi/release
-TARGET=bpi-bare-bones-rust
-OBJDUMP=$(HOME)/x-tools/arm-unknown-eabi/bin/arm-unknown-eabi-objdump
+TARGET=bpi-boot
+
+# gcc toolchain tools
+TOOLCHAIN=$(HOME)/x-tools/arm-unknown-eabi/bin/arm-unknown-eabi-
+OBJDUMP=$(TOOLCHAIN)objdump
+
+# sd card
 FLASH_DEV ?= /dev/sdb
+
+OUTPUT=target/armv7-none-unknown-eabi/release
 
 .PHONY: all dump clean tools $(TARGET).bin
 

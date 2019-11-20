@@ -2,19 +2,14 @@
 #![no_main]
 #![feature(global_asm)]
 
-use core::panic::PanicInfo;
+mod panic;
+mod drivers;
+
+use drivers::uart;
 
 const PB_DAT : u32= 0x01C2090C;
 
-mod uart;
-
 global_asm!(include_str!("boot.S"));
-
-#[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    uart::uart_puts("\rPANIC!");
-    loop {}
-}
 
 fn led_on() {
     unsafe {
