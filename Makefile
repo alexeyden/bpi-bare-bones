@@ -25,6 +25,9 @@ $(TARGET)-spl.bin: tools $(TARGET).bin
 dump:
 	$(OBJDUMP) -D -b binary -marmv7 -EL $(TARGET).bin
 
+dump-elf:
+	$(OBJDUMP) -d $(OUTPUT)/$(TARGET)
+
 tools:
 	$(MAKE) -C $@
 
