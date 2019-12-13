@@ -1,0 +1,16 @@
+Experimenting with bare bones Rust programming on Banana PI (quite old dual-core ARMv7a board).
+
+Contents:
+* src/
+  Sources of the primary image written in Rust
+
+* tools/mksunxiboot.c
+  A little tool stolen from u-boot sources that prepends eGON header to the boot image.
+  Banana PI boot loader firmware expects this header at 8K offset on the SDCARD.
+
+* chainloader/
+  A tiny UART chainloader that can be flashed to SDCARD instead of the primary image.
+  It reads an image hex dump in Motorola SREC 32-bit format from UART and then transfers control
+  to the address given in S7 record. The only supported SREC record types are S0 (silently ignored),
+  S3 and S7.
+
