@@ -10,6 +10,6 @@ mksunxiboot.o: mksunxiboot.c
 
 .PHONY: clean
 clean:
-	rm mksunxiboot
-	rm *.o
+	rm -f mksunxiboot
+	rm -f *.o
 
