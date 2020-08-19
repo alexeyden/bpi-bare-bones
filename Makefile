@@ -1,23 +1,23 @@
 TARGET=bpi-boot
 
 # gcc toolchain tools
-TOOLCHAIN=$(HOME)/x-tools/arm-unknown-eabi/bin/arm-unknown-eabi-
+TOOLCHAIN=$(HOME)/Dev/x-tools/arm-unknown-eabi/bin/arm-unknown-eabi-
 OBJDUMP=$(TOOLCHAIN)objdump
 OBJCOPY=$(TOOLCHAIN)objcopy
 
 # sd card
 FLASH_DEV ?= /dev/sdb
 
-OUTPUT=target/armv7-none-unknown-eabi/release
+OUTPUT=target/armv7a-none-eabi/release
 
 .PHONY: all dump clean tools $(TARGET).bin
 
 all: $(TARGET)-spl.bin
 
 $(TARGET).bin:
-	RUSTFLAGS="-C link-arg=-Tlinker.ld" cargo xbuild \
+	RUSTFLAGS="-C link-arg=-Tlinker.ld" cargo build \
 		--release \
-		--target "armv7-none-unknown-eabi.json"
+		--target armv7a-none-eabi
 	cargo objcopy -- -O binary $(OUTPUT)/$(TARGET) $(TARGET).bin
 
 $(TARGET)-spl.bin: tools $(TARGET).bin

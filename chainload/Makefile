@@ -1,4 +1,4 @@
-CROSS_COMPILE ?= $(HOME)/x-tools/arm-unknown-eabi/bin/arm-unknown-eabi-
+CROSS_COMPILE ?= $(HOME)/Dev/x-tools/arm-unknown-eabi/bin/arm-unknown-eabi-
 
 TARGET = chainloader
 SOURCES = boot.s main.c
