@@ -38,23 +38,12 @@ _putc:
 
 _reset:
 	/* setup supervisor mode stack at the top of SRAM B 64K module */
-	cps #0x13
-	ldr r0, =0x2ff00
-	mov sp, r0
-
-	/* ABORT stack at the top of SRAM D 4K */
-	cps #0x17
-	ldr r0, =0x2ff00
+	ldr r0, =0x2fff0
 	mov sp, r0
 
 	/* IRQ stack at the top of SRAM A3 13K */
 	cps #0x12
-	ldr r0, =0x2ff00
-	mov sp, r0
-
-	/* system stack at the top of SRAM A2 16K */
-	cps #0x1f
-	ldr r0, =0x2800
+	ldr r0, =0xb3f0
 	mov sp, r0
 
 	cps #0x13
