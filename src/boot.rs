@@ -1,7 +1,9 @@
 #![no_std]
 #![no_main]
-#![feature(global_asm)]
 #![allow(dead_code)]
+#![feature(asm)]
+#![feature(global_asm)]
+#![feature(naked_functions)]
 #![feature(const_fn)]
 
 mod panic;
@@ -13,6 +15,7 @@ use core::str;
 use devices::uart::*;
 use devices::ccu::*;
 use devices::gpio::*;
+use devices::io;
 
 const LED_PIN: u32 = 24;
 
@@ -22,6 +25,43 @@ struct Main {
     ccu: CCU,
     console: UART,
     pio_ph: GPIO
+}
+
+#[no_mangle]
+extern "C" fn handle_swi() {
+    let mut uart = UART::get(0);
+    uart.write_str("\r\nSWI");
+}
+
+fn enable_irq() {
+    unsafe {
+        asm!(
+            "push {{r0}}",
+            "mrs r0,cpsr",
+            "bic r0,r0,#0x80",
+            "msr cpsr_c,r0",
+            "pop {{r0}}"
+        );
+    }
+}
+
+fn disable_irq() {
+    unsafe {
+        asm!(
+            "push {{r0}}",
+            "mrs     r0, cpsr",
+            "orr r0, r0, #0x80",
+            "msr     cpsr_c, r0",
+            "pop {{r0}}"
+        );
+    }
+}
+
+#[naked]
+extern "C" fn call_swi() {
+    unsafe {
+        asm!("svc #0");
+    }
 }
 
 impl Main {
@@ -58,6 +98,21 @@ impl Main {
     pub fn run(&mut self) -> ! {
         let mut buf: [u8; 256] = [ 0; 256 ];
 
+        printf!(self.console, "Setting up interrupts...\r\n");
+
+        disable_irq();
+
+        printf!(self.console, "GIC initialization...\n\r");
+
+        unsafe {
+            io::write(0x01C80000 + 0x1000 + 0, 1 << 0);
+            io::write(0x01C80000 + 0x2000 + 0, 1 << 0);
+            io::write(0x01C80000 + 0x2000 + 4, 0xf0);
+        }
+        printf!(self.console, "Enabling interrupts..\n\r");
+
+        enable_irq();
+
         printf!(self.console, "Running main loop");
 
         loop {
@@ -70,9 +125,10 @@ impl Main {
 
     fn on_cmd(&mut self, line: &str) {
         match line {
-            "led on" => self.pio_ph.set_high(LED_PIN),
+            "led on"  => self.pio_ph.set_high(LED_PIN),
             "led off" => self.pio_ph.set_low(LED_PIN),
-            _ => self.console.write_str("\n\runknown cmd")
+            "swi"     => call_swi(),
+            _         => self.console.write_str("\n\runknown cmd")
         }
     }
 }
