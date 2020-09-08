@@ -132,12 +132,14 @@ impl UART {
 
     pub fn write_u32(&mut self, val: u32) {
         let mut n = 1000000000;
+        let mut f = false;
 
         while n > 0 {
             let x = ((val / n) % 10) as u8;
 
-            if x > 0 || n == 1 {
+            if x > 0 || f {
                 self.put_char('0' as u8 + x);
+                f = true;
             }
 
             n = n / 10;

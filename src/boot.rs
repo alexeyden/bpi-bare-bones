@@ -57,6 +57,32 @@ fn disable_irq() {
     }
 }
 
+fn timer_on(interval : u32) {
+    unsafe {
+        io::write(0x01c20c00 + 0x10, 4);
+
+        for _i in 0..0xffff {
+            io::read(0x01c20c00 + 0x10);
+        }
+
+        io::write(0x01c20c00 + 0x14, interval);
+        io::write(0x01c20c00 + 0x10, 7);
+    }
+}
+
+fn timer_read() -> bool {
+    unsafe {
+        if io::get_bit(0x01c20c00 + 4, 0) {
+            let x = io::read(0x01c20c00 + 4);
+            io::write(0x01c20c00 + 4, x | 2);
+
+            return true;
+        }
+    }
+
+    false
+}
+
 #[naked]
 extern "C" fn call_swi() {
     unsafe {
@@ -156,12 +182,28 @@ impl Main {
         }
     }
 
+    fn timer_sleep(&self, msec: u32) {
+        for _ in 0..msec {
+            while ! timer_read() {}
+        }
+    }
+
+    fn timer_test(&mut self) {
+        let sleep_msec = 10 * 1000;
+        timer_on(24_000);
+
+        printf!(self.console, "\r\nWaiting for % msec...", sleep_msec);
+        self.timer_sleep(sleep_msec);
+        printf!(self.console, "OK\n\r");
+    }
+
     fn on_cmd(&mut self, line: &str) {
         match line {
             "led on"  => self.pio_ph.set_high(LED_PIN),
             "led off" => self.pio_ph.set_low(LED_PIN),
             "swi"     => call_swi(),
             "reg"     => self.print_regs(),
+            "wait"    => self.timer_test(),
             _         => self.console.write_str("\n\runknown cmd")
         }
     }
