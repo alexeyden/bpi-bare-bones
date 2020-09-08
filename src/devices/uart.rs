@@ -144,6 +144,22 @@ impl UART {
         }
     }
 
+    pub fn write_hex(&mut self, val: u32) {
+        let hexchar : [char; 16] = [
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+            'a', 'b', 'c', 'd', 'e', 'f'
+        ];
+
+        self.put_char((hexchar[((val >> 28) & 0x0f) as usize]) as u8);
+        self.put_char((hexchar[((val >> 24) & 0x0f) as usize]) as u8);
+        self.put_char((hexchar[((val >> 20) & 0x0f) as usize]) as u8);
+        self.put_char((hexchar[((val >> 16) & 0x0f) as usize]) as u8);
+        self.put_char((hexchar[((val >> 12) & 0x0f) as usize]) as u8);
+        self.put_char((hexchar[((val >>  8) & 0x0f) as usize]) as u8);
+        self.put_char((hexchar[((val >>  4) & 0x0f) as usize]) as u8);
+        self.put_char((hexchar[((val >>  0) & 0x0f) as usize]) as u8);
+    }
+
     pub fn write_i32(&mut self, val: i32) {
         if val < 0 {
             self.put_char('-' as u8);
@@ -161,6 +177,17 @@ impl UART {
                     if let Some('%') = chars.peek() {
                         self.put_char('%' as u8);
                         chars.next();
+                        continue;
+                    }
+
+                    if let Some('x') = chars.peek() {
+                        chars.next();
+
+                        match args.next() {
+                            Some(FormatArg::U32(x)) => self.write_hex(*x),
+                            _ => {}
+                        }
+
                         continue;
                     }
 

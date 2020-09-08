@@ -95,6 +95,39 @@ impl Main {
         }
     }
 
+    fn print_regs(&mut self) {
+        let mut r : [u32; 16] = [ 0; 16 ];
+        let names : [&str; 16] = [
+            "R00", "R01", "R02", "R03",
+            "R04", "R05", "R06", "R07",
+            "R08", "R09", "R10", "R11",
+            "R12", "SP ", "LR ", "PC "
+        ];
+
+        unsafe {
+            asm!("str r0,  [{x}]", x = in(reg) &mut r[0]);
+            asm!("str r1,  [{x}]", x = in(reg) &mut r[1]);
+            asm!("str r2,  [{x}]", x = in(reg) &mut r[2]);
+            asm!("str r3,  [{x}]", x = in(reg) &mut r[3]);
+            asm!("str r4,  [{x}]", x = in(reg) &mut r[4]);
+            asm!("str r5,  [{x}]", x = in(reg) &mut r[5]);
+            asm!("str r6,  [{x}]", x = in(reg) &mut r[6]);
+            asm!("str r7,  [{x}]", x = in(reg) &mut r[7]);
+            asm!("str r8,  [{x}]", x = in(reg) &mut r[8]);
+            asm!("str r9,  [{x}]", x = in(reg) &mut r[9]);
+            asm!("str r10, [{x}]", x = in(reg) &mut r[10]);
+            asm!("str r11, [{x}]", x = in(reg) &mut r[11]);
+            asm!("str r12, [{x}]", x = in(reg) &mut r[12]);
+            asm!("str r13, [{x}]", x = in(reg) &mut r[13]);
+            asm!("str r14, [{x}]", x = in(reg) &mut r[14]);
+            asm!("str r15, [{x}]", x = in(reg) &mut r[15]);
+        }
+
+        for i in 0..16 {
+            printf!(self.console, "% = %x\n\r", names[i], r[i]);
+        }
+    }
+
     pub fn run(&mut self) -> ! {
         let mut buf: [u8; 256] = [ 0; 256 ];
 
@@ -128,6 +161,7 @@ impl Main {
             "led on"  => self.pio_ph.set_high(LED_PIN),
             "led off" => self.pio_ph.set_low(LED_PIN),
             "swi"     => call_swi(),
+            "reg"     => self.print_regs(),
             _         => self.console.write_str("\n\runknown cmd")
         }
     }
