@@ -13,12 +13,12 @@ ldr pc, _interrupt_vector_h
 ldr pc, _fast_interrupt_vector_h
 
 _reset_h:                           .word   _reset
-_undefined_instruction_vector_h:    .word   _reset
+_undefined_instruction_vector_h:    .word   _inf_loop
 _software_interrupt_vector_h:       .word   software_interrupt_vector
-_prefetch_abort_vector_h:           .word   _reset
-_data_abort_vector_h:               .word   _reset
+_prefetch_abort_vector_h:           .word   _inf_loop
+_data_abort_vector_h:               .word   _inf_loop
 _unused_handler_h:                  .word   _reset
-_interrupt_vector_h:                .word   _reset
+_interrupt_vector_h:                .word   interrupt_vector
 _fast_interrupt_vector_h:           .word   _reset
 
 /*
@@ -57,11 +57,29 @@ _reset:
 _inf_loop:
 	b _inf_loop
 
-software_interrupt_vector:
+interrupt_vector:
 	stmfd sp!,{r0-r12, lr}
+
+	/* align stack to 8 bytes */
 	mov r4, sp
 	bic sp, sp, #7
+
+	/* call into the high level handler */
+	bl handle_irq
+	mov sp, r4
+
+	ldmfd sp!,{r0-r12, pc}^
+
+software_interrupt_vector:
+	stmfd sp!,{r0-r12, lr}
+
+	/* align stack to 8 bytes */
+	mov r4, sp
+	bic sp, sp, #7
+
+	/* call high level handler */
 	bl handle_swi
 	mov sp, r4
+
 	ldmfd sp!,{r0-r12, pc}^
 

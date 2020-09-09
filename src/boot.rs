@@ -27,10 +27,40 @@ struct Main {
     pio_ph: GPIO
 }
 
+static mut G_TICKS : u32 = 0;
+static mut G_TIMER_EVENT : u32 = 0;
+
 #[no_mangle]
 extern "C" fn handle_swi() {
     let mut uart = UART::get(0);
     uart.write_str("\r\nSWI");
+}
+
+#[no_mangle]
+extern "C" fn handle_irq() {
+    let n = gic_getack();
+
+    timer_read();
+
+    unsafe {
+        G_TICKS += 1;
+
+        core::ptr::write_volatile(&mut G_TIMER_EVENT, 1);
+
+        if G_TICKS > 400 {
+            let mut ph = GPIO::get(GPIO_PH);
+
+            if ph.is_high(LED_PIN) {
+                ph.set_low(LED_PIN);
+            } else {
+                ph.set_high(LED_PIN);
+            }
+
+            G_TICKS = 0;
+        }
+    }
+
+    gic_eoi(n);
 }
 
 fn enable_irq() {
@@ -57,16 +87,28 @@ fn disable_irq() {
     }
 }
 
+fn blinker() {
+    timer_on(24_000);
+
+    unsafe {
+        let x : u32 = io::read(0x01c20c00 + 0x0);
+        io::write(0x01c20c00 + 0x0, x | 1);
+    }
+}
+
 fn timer_on(interval : u32) {
     unsafe {
         io::write(0x01c20c00 + 0x10, 4);
 
+        /* wait a little */
         for _i in 0..0xffff {
             io::read(0x01c20c00 + 0x10);
         }
 
         io::write(0x01c20c00 + 0x14, interval);
         io::write(0x01c20c00 + 0x10, 7);
+
+        irq_en(54);
     }
 }
 
@@ -81,6 +123,29 @@ fn timer_read() -> bool {
     }
 
     false
+}
+
+fn irq_en(no : u32) {
+    unsafe {
+        let n = no >> 5;
+        let a = 0x01C80000 + 0x1000 + 0x0100 + 4 * n;
+        let v = io::read(a);
+        io::write(a, v | (1 << (no & 0x1f)));
+
+        io::write8(0x01C80000 + 0x1000 + 0x0800 + no, 1);
+    }
+}
+
+fn gic_eoi(no : u32) {
+    unsafe {
+        io::write(0x01C82010, no);
+    }
+}
+
+fn gic_getack() -> u32 {
+    unsafe {
+        io::read(0x01C8200C)
+    }
 }
 
 #[naked]
@@ -184,12 +249,15 @@ impl Main {
 
     fn timer_sleep(&self, msec: u32) {
         for _ in 0..msec {
-            while ! timer_read() {}
+            unsafe {
+                while core::ptr::read_volatile(&G_TIMER_EVENT) == 0 {}
+                core::ptr::write_volatile(&mut G_TIMER_EVENT, 0);
+            }
         }
     }
 
     fn timer_test(&mut self) {
-        let sleep_msec = 10 * 1000;
+        let sleep_msec = 2 * 1000;
         timer_on(24_000);
 
         printf!(self.console, "\r\nWaiting for % msec...", sleep_msec);
@@ -204,6 +272,7 @@ impl Main {
             "swi"     => call_swi(),
             "reg"     => self.print_regs(),
             "wait"    => self.timer_test(),
+            "blink"   => blinker(),
             _         => self.console.write_str("\n\runknown cmd")
         }
     }

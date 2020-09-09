@@ -16,7 +16,7 @@ const NO_PARITY : u32 = 0 << 3;
 const STOP_1    : u32 = 0 << 2;
 const DATA_8    : u32 = 3 << 0;
 
-pub const UART_8N1 : u32 = ( NO_PARITY | STOP_1 | DATA_8 );
+pub const UART_8N1 : u32 = NO_PARITY | STOP_1 | DATA_8;
 
 use crate::devices::io;
 
