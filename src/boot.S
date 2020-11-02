@@ -36,6 +36,14 @@ _putc:
 	pop {r0,r1,r3, pc}
 */
 
+_delay:
+	push {lr}
+	_lp:
+	sub r0, r0, #1
+	cmp r0, #0
+	blne _lp
+	pop {pc}
+
 _reset:
 	/* setup supervisor mode stack at the top of SRAM B 64K module */
 	ldr r0, =0x2fff0

@@ -30,6 +30,11 @@ struct Main {
 static mut G_TICKS : u32 = 0;
 static mut G_TIMER_EVENT : u32 = 0;
 
+extern "C" {
+    #[no_mangle]
+    fn _delay(ticks : u32);
+}
+
 #[no_mangle]
 extern "C" fn handle_swi() {
     let mut uart = UART::get(0);
@@ -265,6 +270,12 @@ impl Main {
         printf!(self.console, "OK\n\r");
     }
 
+    fn delay_test(&mut self) {
+        let ticks : u32 = 24_000_000;
+        printf!(self.console, "\r\nDelay for % ticks...", ticks);
+        unsafe { _delay(ticks); }
+    }
+
     fn on_cmd(&mut self, line: &str) {
         match line {
             "led on"  => self.pio_ph.set_high(LED_PIN),
@@ -272,6 +283,8 @@ impl Main {
             "swi"     => call_swi(),
             "reg"     => self.print_regs(),
             "wait"    => self.timer_test(),
+            "reclock" => self.ccu.set_cpu_1500mhz(),
+            "delay"   => self.delay_test(),
             "blink"   => blinker(),
             _         => self.console.write_str("\n\runknown cmd")
         }
