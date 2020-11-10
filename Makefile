@@ -12,7 +12,7 @@ OUTPUT=target/armv7a-none-eabi/release
 
 .PHONY: all dump clean tools $(TARGET).bin
 
-all: $(TARGET)-spl.bin
+all: $(TARGET)-spl.bin $(TARGET).srec
 
 $(TARGET).bin:
 	RUSTFLAGS="-C link-arg=-Tlinker.ld" cargo build \
@@ -23,7 +23,7 @@ $(TARGET).bin:
 $(TARGET)-spl.bin: tools $(TARGET).bin
 	tools/mksunxiboot $(TARGET).bin $(TARGET)-spl.bin
 
-$(TARGET).srec:
+$(TARGET).srec: $(TARGET).bin
 	$(OBJCOPY) -O srec --srec-forceS3 $(OUTPUT)/$(TARGET) $(TARGET).srec
 
 chainloader: tools
@@ -41,7 +41,6 @@ dump-elf:
 
 tools:
 	$(MAKE) -C $@
-
 
 flash:
 	[ -b $(FLASH_DEV) ] && sudo dd if=$(TARGET)-spl.bin of=$(FLASH_DEV) bs=1K seek=8 && sync

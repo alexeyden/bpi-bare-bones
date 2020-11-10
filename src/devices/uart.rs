@@ -134,6 +134,11 @@ impl UART {
         let mut n = 1000000000;
         let mut f = false;
 
+        if val == 0 {
+            self.put_char('0' as u8);
+            return;
+        }
+
         while n > 0 {
             let x = ((val / n) % 10) as u8;
 

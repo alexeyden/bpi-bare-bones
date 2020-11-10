@@ -13,6 +13,11 @@ pub const CCU_APB1_UART1: u32 = 17;
 pub const CCU_APB1_UART2: u32 = 18;
 pub const CCU_APB1_UART3: u32 = 19;
 
+pub const CCU_APB1_TWI3:  u32 = 3;
+pub const CCU_APB1_TWI2:  u32 = 2;
+pub const CCU_APB1_TWI1:  u32 = 1;
+pub const CCU_APB1_TWI0:  u32 = 0;
+
 pub const CCU_CPU_CLOCK_SRC_PLL1: u32 = 2;
 
 use crate::devices::io;

@@ -15,6 +15,7 @@ use core::str;
 use devices::uart::*;
 use devices::ccu::*;
 use devices::gpio::*;
+use devices::i2c::*;
 use devices::io;
 
 const LED_PIN: u32 = 24;
@@ -171,8 +172,11 @@ impl Main {
 
         pb.cfg(22, GPIO_UART);
         pb.cfg(23, GPIO_UART);
+        pb.cfg(0, GPIO_TWI);
+        pb.cfg(1, GPIO_TWI);
 
         ccu.clock_gate(CCU_APB1).pass(CCU_APB1_UART0);
+        ccu.clock_gate(CCU_APB1).pass(CCU_APB1_TWI0);
 
         uart.set_mode(115200, UART_8N1);
         uart.set_echo(true);
@@ -276,6 +280,15 @@ impl Main {
         unsafe { _delay(ticks); }
     }
 
+    fn power(&mut self) {
+        let v = unsafe {
+            twi_init();
+            twi_read(0x34, 0x03)
+        };
+
+        printf!(self.console, "\r\nAXP209 version: %", (v & 0x0f) as u32);
+    }
+
     fn on_cmd(&mut self, line: &str) {
         match line {
             "led on"  => self.pio_ph.set_high(LED_PIN),
@@ -286,6 +299,7 @@ impl Main {
             "reclock" => self.ccu.set_cpu_1500mhz(),
             "delay"   => self.delay_test(),
             "blink"   => blinker(),
+            "power"   => self.power(),
             _         => self.console.write_str("\n\runknown cmd")
         }
     }

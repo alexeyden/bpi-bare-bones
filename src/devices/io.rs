@@ -11,8 +11,7 @@ pub unsafe fn read(reg: u32) -> u32 {
 
 pub unsafe fn set_bits(reg: u32, v: u32) {
     let val = read(reg);
-    val |= v;
-    write(reg, v);
+    write(reg, val | v);
 }
 
 pub unsafe fn write8(reg: u32, value: u8) {

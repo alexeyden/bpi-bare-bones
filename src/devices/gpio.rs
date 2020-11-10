@@ -24,6 +24,7 @@ pub const GPIO_PH: u32 = 7;
 pub const GPIO_IN: u32 = 0;
 pub const GPIO_OUT: u32 = 1;
 pub const GPIO_UART: u32 = 2;
+pub const GPIO_TWI: u32 = 2;
 
 pub struct GPIO {
     port: u32
