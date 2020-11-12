@@ -23,7 +23,6 @@ pub const CCU_CPU_CLOCK_SRC_PLL1: u32 = 2;
 use crate::devices::io;
 
 extern "C" {
-    #[no_mangle]
     fn _delay(ticks : u32);
 }
 
@@ -63,14 +62,14 @@ impl CCU {
     pub fn set_cpu_1500mhz(&mut self) {
         let cfg_pll1 : u32 =
             1 << 31  | // ENABLE = 1
-            31 << 8  | // N = 31
+            19 << 8  | // N = 31
             1 << 4   | // K = 1
             8 << 26  | // VCO_BIAS = 8
             16 << 20 | // BIAS_CUR = 16
             2 << 13  ; // LOCK_TMR = 2
 
         let cfg_cpu_1500 : u32 =
-            3 << 0 | // axi = 3
+            2 << 0 | // axi = 3
             1 << 4 | // ahb = 1
             1 << 8 ; // pb0 = 1
 

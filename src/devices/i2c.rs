@@ -27,7 +27,6 @@ const STATUS_REP_START  : u32 = 0x10;
 const STATUS_START      : u32 = 0x08;
 
 extern "C" {
-    #[no_mangle]
     fn _delay(ticks : u32);
 }
 
@@ -107,8 +106,9 @@ pub unsafe fn twi_read(chip : u8, reg : u8) -> u8 {
     return b;
 }
 
-pub unsafe fn twi_write(chip : u8, data : u8) {
+pub unsafe fn twi_write(chip : u8, reg : u8, data : u8) {
     twi_begin(STATUS_START, chip << 1);
+    twi_send(STATUS_DATA_W_ACK, reg);
     twi_send(STATUS_DATA_W_ACK, data);
     twi_stop();
 }

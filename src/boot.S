@@ -21,20 +21,18 @@ _unused_handler_h:                  .word   _reset
 _interrupt_vector_h:                .word   interrupt_vector
 _fast_interrupt_vector_h:           .word   _reset
 
-/*
 _putc:
 	push {r0,r1,r3, lr}
 	ldr r1, =0x01c28000
 	str r0, [r1]
 
 	ldr r3, =0x0000ffff
-	_lp:
+	_putc_lp:
 	sub r3, r3, #1
 	cmp r3, #0
-	blne _lp
+	blne _putc_lp
 
 	pop {r0,r1,r3, pc}
-*/
 
 _delay:
 	push {lr}
@@ -63,6 +61,8 @@ _reset:
 	bl _main
 
 _inf_loop:
+	ldr r0, =33
+	bl _putc
 	b _inf_loop
 
 interrupt_vector:

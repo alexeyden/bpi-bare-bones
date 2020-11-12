@@ -29,10 +29,8 @@ struct Main {
 }
 
 static mut G_TICKS : u32 = 0;
-static mut G_TIMER_EVENT : u32 = 0;
 
 extern "C" {
-    #[no_mangle]
     fn _delay(ticks : u32);
 }
 
@@ -51,9 +49,8 @@ extern "C" fn handle_irq() {
     unsafe {
         G_TICKS += 1;
 
-        core::ptr::write_volatile(&mut G_TIMER_EVENT, 1);
 
-        if G_TICKS > 400 {
+        if G_TICKS % 500 == 0 {
             let mut ph = GPIO::get(GPIO_PH);
 
             if ph.is_high(LED_PIN) {
@@ -61,8 +58,6 @@ extern "C" fn handle_irq() {
             } else {
                 ph.set_high(LED_PIN);
             }
-
-            G_TICKS = 0;
         }
     }
 
@@ -246,7 +241,11 @@ impl Main {
 
         enable_irq();
 
-        printf!(self.console, "Running main loop");
+        self.power();
+        self.ccu.set_cpu_1500mhz();
+        blinker();
+
+        printf!(self.console, "\r\nRunning main loop");
 
         loop {
             self.console.write_str("\r\n> ");
@@ -256,12 +255,10 @@ impl Main {
         }
     }
 
-    fn timer_sleep(&self, msec: u32) {
-        for _ in 0..msec {
-            unsafe {
-                while core::ptr::read_volatile(&G_TIMER_EVENT) == 0 {}
-                core::ptr::write_volatile(&mut G_TIMER_EVENT, 0);
-            }
+    fn msleep(&self, msec: u32) {
+        unsafe {
+            let ticks = core::ptr::read_volatile(&G_TICKS);
+            while core::ptr::read_volatile(&G_TICKS) < ticks + msec {}
         }
     }
 
@@ -270,23 +267,40 @@ impl Main {
         timer_on(24_000);
 
         printf!(self.console, "\r\nWaiting for % msec...", sleep_msec);
-        self.timer_sleep(sleep_msec);
+        self.msleep(sleep_msec);
         printf!(self.console, "OK\n\r");
     }
 
-    fn delay_test(&mut self) {
-        let ticks : u32 = 24_000_000;
-        printf!(self.console, "\r\nDelay for % ticks...", ticks);
-        unsafe { _delay(ticks); }
-    }
-
     fn power(&mut self) {
+        let axp209 = 0x34;
         let v = unsafe {
             twi_init();
-            twi_read(0x34, 0x03)
+            twi_read(axp209, 0x03)
         };
 
         printf!(self.console, "\r\nAXP209 version: %", (v & 0x0f) as u32);
+
+        unsafe {
+            let v = twi_read(axp209, 0x12);
+            printf!(self.console, "\r\nCTRL = %x", v as u32);
+            let dcdc2 : u32 = (1400 - 700)/25;
+            twi_write(axp209, 0x12, v | (1 << 4)); // OUTPUT CONTROL += DCDC2
+            twi_write(axp209, 0x23, dcdc2 as u8);
+
+            let dcdc3 : u32= (1250 - 700)/25;
+            twi_write(axp209, 0x27, dcdc3 as u8);
+            let v = twi_read(axp209, 0x12);
+            twi_write(axp209, 0x12, v | (1 << 1)); // OUTPUT CONTROL += DCDC3
+
+            let ldo2 : u32= (3000 - 1800)/100;
+            let v = twi_read(axp209, 0x28);
+            twi_write(axp209, 0x28, ((v & 0x0f) | (ldo2 as u8 & 0xf0)) as u8);
+            let v = twi_read(axp209, 0x12);
+            twi_write(axp209, 0x12, v | (1 << 2)); // OUTPUT CONTROL += LDO2
+
+            let v = twi_read(axp209, 0x12) & !(1<<6 | 1<<3);
+            twi_write(axp209, 0x12, v); // OUTPUT CONTROL += LDO2
+        }
     }
 
     fn on_cmd(&mut self, line: &str) {
@@ -297,7 +311,6 @@ impl Main {
             "reg"     => self.print_regs(),
             "wait"    => self.timer_test(),
             "reclock" => self.ccu.set_cpu_1500mhz(),
-            "delay"   => self.delay_test(),
             "blink"   => blinker(),
             "power"   => self.power(),
             _         => self.console.write_str("\n\runknown cmd")

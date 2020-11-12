@@ -18,13 +18,13 @@ $(TARGET).bin:
 	RUSTFLAGS="-C link-arg=-Tlinker.ld" cargo build \
 		--release \
 		--target armv7a-none-eabi
-	cargo objcopy -- -O binary $(OUTPUT)/$(TARGET) $(TARGET).bin
+	rust-objcopy -O binary $(OUTPUT)/$(TARGET) $(TARGET).bin
 
 $(TARGET)-spl.bin: tools $(TARGET).bin
 	tools/mksunxiboot $(TARGET).bin $(TARGET)-spl.bin
 
 $(TARGET).srec: $(TARGET).bin
-	$(OBJCOPY) -O srec --srec-forceS3 $(OUTPUT)/$(TARGET) $(TARGET).srec
+	objcopy -O srec --srec-forceS3 $(OUTPUT)/$(TARGET) $(TARGET).srec
 
 chainloader: tools
 	$(MAKE) -C chainload
@@ -34,10 +34,10 @@ chainloader-flash:
 	[ -b $(FLASH_DEV) ] && sudo dd if=chainloader-spl.bin of=$(FLASH_DEV) bs=1K seek=8 && sync
 
 dump:
-	$(OBJDUMP) -D -b binary -marmv7 -EL $(TARGET).bin
+	rust-objdump -b binary -marmv7 $(TARGET).bin
 
 dump-elf:
-	$(OBJDUMP) -d $(OUTPUT)/$(TARGET)
+	rust-objdump -D $(OUTPUT)/$(TARGET)
 
 tools:
 	$(MAKE) -C $@
