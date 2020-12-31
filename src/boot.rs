@@ -281,25 +281,35 @@ impl Main {
         printf!(self.console, "\r\nAXP209 version: %", (v & 0x0f) as u32);
 
         unsafe {
-            let v = twi_read(axp209, 0x12);
-            printf!(self.console, "\r\nCTRL = %x", v as u32);
+            /* Enable DCDC2 and set the voltage to 1.4V */
+
             let dcdc2 : u32 = (1400 - 700)/25;
-            twi_write(axp209, 0x12, v | (1 << 4)); // OUTPUT CONTROL += DCDC2
             twi_write(axp209, 0x23, dcdc2 as u8);
+
+            let v = twi_read(axp209, 0x12);
+            twi_write(axp209, 0x12, v | (1 << 4));
+
+            /* Enable DCDC3 and set the voltage to 1.25V */
 
             let dcdc3 : u32= (1250 - 700)/25;
             twi_write(axp209, 0x27, dcdc3 as u8);
+
             let v = twi_read(axp209, 0x12);
-            twi_write(axp209, 0x12, v | (1 << 1)); // OUTPUT CONTROL += DCDC3
+            twi_write(axp209, 0x12, v | (1 << 1));
+
+            /* Enable LDO2 and set the voltage to 3.0V */
 
             let ldo2 : u32= (3000 - 1800)/100;
             let v = twi_read(axp209, 0x28);
             twi_write(axp209, 0x28, ((v & 0x0f) | (ldo2 as u8 & 0xf0)) as u8);
+
             let v = twi_read(axp209, 0x12);
-            twi_write(axp209, 0x12, v | (1 << 2)); // OUTPUT CONTROL += LDO2
+            twi_write(axp209, 0x12, v | (1 << 2));
+
+            /* Turn off LDO3 and LDO4 */
 
             let v = twi_read(axp209, 0x12) & !(1<<6 | 1<<3);
-            twi_write(axp209, 0x12, v); // OUTPUT CONTROL += LDO2
+            twi_write(axp209, 0x12, v);
         }
     }
 
