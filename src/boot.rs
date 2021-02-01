@@ -9,8 +9,8 @@
 mod panic;
 mod devices;
 
-use core::slice;
-use core::str;
+//use core::slice;
+//use core::str;
 
 use devices::uart::*;
 use devices::ccu::*;
@@ -150,10 +150,11 @@ fn gic_getack() -> u32 {
 }
 
 #[naked]
-extern "C" fn call_swi() {
-    unsafe {
-        asm!("svc #0");
-    }
+unsafe extern "C" fn call_swi() {
+    asm!("svc #0", options(noreturn));
+}
+
+unsafe fn fixup() {
 }
 
 impl Main {
@@ -184,7 +185,7 @@ impl Main {
         ph.set_low(LED_PIN);
 
         Main {
-            ccu: ccu,
+            ccu,
             console: uart,
             pio_ph: ph
         }
@@ -224,7 +225,7 @@ impl Main {
     }
 
     pub fn run(&mut self) -> ! {
-        let mut buf: [u8; 256] = [ 0; 256 ];
+        //let mut buf: [u8; 256] = [ 0; 256 ];
 
         printf!(self.console, "Setting up interrupts...\r\n");
 
@@ -239,19 +240,22 @@ impl Main {
         }
         printf!(self.console, "Enabling interrupts..\n\r");
 
-        enable_irq();
+        //enable_irq();
 
         self.power();
         self.ccu.set_cpu_1500mhz();
-        blinker();
+        unsafe { self.ccu.dram_init(); }
+        //blinker();
 
-        printf!(self.console, "\r\nRunning main loop");
+//        printf!(self.console, "\r\nRunning main loop");
 
         loop {
+            /*
             self.console.write_str("\r\n> ");
             let size = self.console.read_str(&mut buf);
             let s = unsafe { slice::from_raw_parts(&buf as *const u8, size) };
             self.on_cmd(str::from_utf8(s).unwrap());
+            */
         }
     }
 
@@ -273,12 +277,10 @@ impl Main {
 
     fn power(&mut self) {
         let axp209 = 0x34;
-        let v = unsafe {
-            twi_init();
-            twi_read(axp209, 0x03)
-        };
 
-        printf!(self.console, "\r\nAXP209 version: %", (v & 0x0f) as u32);
+        unsafe {
+            twi_init();
+        };
 
         unsafe {
             /* Enable DCDC2 and set the voltage to 1.4V */
@@ -317,12 +319,13 @@ impl Main {
         match line {
             "led on"  => self.pio_ph.set_high(LED_PIN),
             "led off" => self.pio_ph.set_low(LED_PIN),
-            "swi"     => call_swi(),
+            "swi"     => unsafe { call_swi() },
             "reg"     => self.print_regs(),
             "wait"    => self.timer_test(),
             "reclock" => self.ccu.set_cpu_1500mhz(),
             "blink"   => blinker(),
             "power"   => self.power(),
+            "dram"    => unsafe { self.ccu.dram_init() },
             _         => self.console.write_str("\n\runknown cmd")
         }
     }

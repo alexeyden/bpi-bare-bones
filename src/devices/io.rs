@@ -14,6 +14,12 @@ pub unsafe fn set_bits(reg: u32, v: u32) {
     write(reg, val | v);
 }
 
+pub unsafe fn clrset_bits(reg: u32, clear: u32, set: u32) {
+    let val = read(reg);
+    write(reg, val & !clear | set);
+}
+
+
 pub unsafe fn write8(reg: u32, value: u8) {
     write_volatile(reg as *mut u8, value)
 }

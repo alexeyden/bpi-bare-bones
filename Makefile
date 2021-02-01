@@ -6,7 +6,7 @@ OBJDUMP=$(TOOLCHAIN)objdump
 OBJCOPY=$(TOOLCHAIN)objcopy
 
 # sd card
-FLASH_DEV ?= /dev/sdb
+FLASH_DEV ?= /dev/sdc
 
 OUTPUT=target/armv7a-none-eabi/release
 
@@ -17,7 +17,7 @@ all: $(TARGET)-spl.bin $(TARGET).srec
 $(TARGET).bin:
 	RUSTFLAGS="-C link-arg=-Tlinker.ld" cargo build \
 		--release \
-		--target armv7a-none-eabi
+		--target armv7a-none-eabi --verbose
 	rust-objcopy -O binary $(OUTPUT)/$(TARGET) $(TARGET).bin
 
 $(TARGET)-spl.bin: tools $(TARGET).bin

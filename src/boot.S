@@ -13,13 +13,13 @@ ldr pc, _interrupt_vector_h
 ldr pc, _fast_interrupt_vector_h
 
 _reset_h:                           .word   _reset
-_undefined_instruction_vector_h:    .word   _inf_loop
+_undefined_instruction_vector_h:    .word   software_interrupt_vector
 _software_interrupt_vector_h:       .word   software_interrupt_vector
-_prefetch_abort_vector_h:           .word   _inf_loop
-_data_abort_vector_h:               .word   _inf_loop
-_unused_handler_h:                  .word   _reset
+_prefetch_abort_vector_h:           .word   software_interrupt_vector
+_data_abort_vector_h:               .word   software_interrupt_vector
+_unused_handler_h:                  .word   software_interrupt_vector
 _interrupt_vector_h:                .word   interrupt_vector
-_fast_interrupt_vector_h:           .word   _reset
+_fast_interrupt_vector_h:           .word   software_interrupt_vector
 
 _putc:
 	push {r0,r1,r3, lr}
@@ -57,6 +57,39 @@ _reset:
 	/* disable high exception vectors (by setting SCTRL.V to 0) */
 	ldr r1, =0x139A98
 	mcr p15, 0, r1, c1, c0, 0
+
+	/*
+	 * disable interrupts (FIQ and IRQ), also set the cpu to SVC32 mode,
+	 * except if in HYP mode already
+	 */
+	mrs	r0, cpsr
+	and	r1, r0, #0x1f		@ mask mode bits
+	teq	r1, #0x1a		@ test for HYP mode
+	bicne	r0, r0, #0x1f		@ clear all mode bits
+	orrne	r0, r0, #0x13		@ set SVC mode
+	orr	r0, r0, #0xc0		@ disable FIQ and IRQ
+	msr	cpsr,r0
+
+	/*
+	 * Invalidate L1 I/D
+	 */
+	mov	r0, #0			@ set up for MCR
+	mcr	p15, 0, r0, c8, c7, 0	@ invalidate TLBs
+	mcr	p15, 0, r0, c7, c5, 0	@ invalidate icache
+	mcr	p15, 0, r0, c7, c5, 6	@ invalidate BP array
+	mcr     p15, 0, r0, c7, c10, 4	@ DSB
+	mcr     p15, 0, r0, c7, c5, 4	@ ISB
+
+	/*
+	 * disable MMU stuff and caches
+	 */
+	mrc	p15, 0, r0, c1, c0, 0
+	bic	r0, r0, #0x00002000	@ clear bits 13 (--V-)
+	bic	r0, r0, #0x00000007	@ clear bits 2:0 (-CAM)
+	orr	r0, r0, #0x00000002	@ set bit 1 (--A-) Align
+	orr	r0, r0, #0x00000800	@ set bit 11 (Z---) BTB
+	bic	r0, r0, #0x00001000	@ clear bit 12 (I) I-cache
+	mcr	p15, 0, r0, c1, c0, 0
 
 	bl _main
 
