@@ -157,6 +157,147 @@ unsafe extern "C" fn call_swi() {
 unsafe fn fixup() {
 }
 
+struct LoaderStateData {
+    addr: u32,
+    count: u32,
+    csum: u32
+}
+
+enum LoaderState {
+    Start,
+    Type,
+    S0Ignore,
+    S3Addr,
+    S3Data,
+    S7Addr,
+    Failure
+}
+
+fn load_srec(uart: &mut UART, base: *mut u8) -> (LoaderState, LoaderStateData) {
+    let mut data = LoaderStateData { addr: 0, count: 0, csum: 0 };
+    let mut state = LoaderState::Start;
+
+    uart.set_echo(false);
+
+    fn read4(serial : &mut UART) -> u8 {
+        let c = serial.get_char();
+
+        if (b'0'..=b'9').contains(&c) {
+            c - b'0'
+        } else {
+            10 + c - b'A'
+        }
+    }
+
+    fn read8(serial : &mut UART) -> u8 {
+        (read4(serial) << 4) | read4(serial)
+    }
+
+    fn read32(serial : &mut UART) -> u32 {
+        (read8(serial) as u32) << 24 |
+        (read8(serial) as u32) << 16 |
+        (read8(serial) as u32) <<  8 |
+         read8(serial) as u32
+    }
+
+    loop {
+        match state {
+            LoaderState::Start => {
+                let ch = uart.get_char();
+                if ch != b'S' {
+                    printf!(uart, "error: expected start %\r\n", ch as char);
+                    state = LoaderState::Failure;
+                    continue;
+                }
+
+                state = LoaderState::Type;
+            },
+            LoaderState::Type => {
+                let r = uart.get_char();
+
+                if !(b'0'..=b'9').contains(&r) {
+                    uart.write_str("error: unexpected record type\r\n");
+                    state = LoaderState::Failure;
+                    continue;
+                }
+
+                data.count = read8(uart) as u32;
+                data.csum = data.count;
+
+                state = match r {
+                    b'0' => LoaderState::S0Ignore,
+                    b'3' => LoaderState::S3Addr,
+                    b'7' => LoaderState::S7Addr,
+                    _    => LoaderState::Failure
+                };
+            },
+            LoaderState::S0Ignore => {
+                while data.count > 0 {
+                    uart.get_char();
+                    uart.get_char();
+
+                    data.count -= 1;
+                }
+
+                uart.get_char();
+                uart.get_char();
+
+                state = LoaderState::Start;
+            },
+            LoaderState::S3Addr => {
+                data.count -= 5;
+                data.addr = read32(uart);
+
+                data.csum += (data.addr >> 24) & 0xff;
+                data.csum += (data.addr >> 16) & 0xff;
+                data.csum += (data.addr >>  8) & 0xff;
+                data.csum += data.addr & 0xff;
+
+                state = LoaderState::S3Data;
+            },
+            LoaderState::S3Data => {
+                let v = read8(uart);
+
+                data.count -= 1;
+                data.csum += v as u32;
+                data.addr += 1;
+
+                unsafe {
+                    *(base.offset(data.addr as isize)) = v;
+                }
+
+                if data.count > 0 {
+                    continue;
+                }
+
+                let cs0 = read8(uart);
+                let cs1 = !(data.csum & 0xff) as u8;
+
+                uart.put_char(if cs0 == cs1 { b'.'} else { b'!' });
+
+                uart.get_char();
+                uart.get_char();
+
+                state = LoaderState::Start;
+            },
+            LoaderState::S7Addr => {
+                read32(uart);
+                read8(uart);
+                uart.get_char();
+                uart.get_char();
+                break;
+            },
+            LoaderState::Failure => {
+                break;
+            }
+        }
+    }
+
+    uart.set_echo(true);
+
+    (state, data)
+}
+
 impl Main {
     pub fn new() -> Main {
         let mut ccu = CCU::get();
@@ -231,6 +372,7 @@ impl Main {
 
         disable_irq();
 
+        /*
         printf!(self.console, "GIC initialization...\n\r");
 
         unsafe {
@@ -239,24 +381,53 @@ impl Main {
             io::write(0x01C80000 + 0x2000 + 4, 0xf0);
         }
         printf!(self.console, "Enabling interrupts..\n\r");
+        */
 
         //enable_irq();
 
         self.power();
         self.ccu.set_cpu_1500mhz();
         unsafe { self.ccu.dram_init(); }
-        //blinker();
 
-//        printf!(self.console, "\r\nRunning main loop");
+        const KERNEL_BASE  : u32 = 0x4200_0000;
+        const DTB_BASE     : u32 = 0x4800_0000;
+        const INITRAM_BASE : u32 = 0x4820_0000;
+
+        printf!(self.console, "\r\nLoading kernel at 0x%x", KERNEL_BASE);
+        load_srec(&mut self.console, KERNEL_BASE as *mut u8);
+        printf!(self.console, "OK");
+
+        printf!(self.console, "\r\nLoading dtb at 0x%x", DTB_BASE);
+        load_srec(&mut self.console, DTB_BASE as *mut u8);
+        printf!(self.console, "OK");
+
+        printf!(self.console, "\r\nLoading initramfs at 0x%x", INITRAM_BASE);
+        load_srec(&mut self.console, INITRAM_BASE as *mut u8);
+        printf!(self.console, "OK");
+
+        unsafe {
+            asm!(
+                "mov r0, #0",
+                "mov r1, #0",
+                "ldr r2, ={x}",
+                "ldr r3, ={y}",
+                "b r3",
+                x = const DTB_BASE,
+                y = const KERNEL_BASE);
+        }
 
         loop {
-            /*
+            unsafe { asm!("wfi"); }
+        }
+
+        /*
+        loop {
             self.console.write_str("\r\n> ");
             let size = self.console.read_str(&mut buf);
             let s = unsafe { slice::from_raw_parts(&buf as *const u8, size) };
             self.on_cmd(str::from_utf8(s).unwrap());
-            */
         }
+        */
     }
 
     fn msleep(&self, msec: u32) {

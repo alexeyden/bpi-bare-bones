@@ -288,25 +288,42 @@ impl CCU {
             io::write(DRAMC_BASE + 0x250 + i * 4, hpcr[i as usize]);
         }
 
+        /*
+
         printf!(uart, "RAM initialized, test write...\r\n");
 
         const FILL_SIZE : u32 = 1024 * 1024 * 1024 / 4;
+        const FILL_BASE : u32 = 0x4000_0000;
+
         for i in 0..FILL_SIZE {
             if i % (1024 * 1024 * 16) == 0 {
-                printf!(uart, "\r\nAt 0x%x\r\n", 0x4000_0000 + i * 4);
+                printf!(uart, "\r\nAt 0x%x\r\n", FILL_BASE + i * 4);
             }
             if i % (1024 * 1024) == 0 {
                 uart.put_char(b'.');
             }
-            io::write(0x4000_0000 + i * 4, 0xdeadbeef);
+            io::write(FILL_BASE + i * 4, 0xdeadbeef);
         }
 
+        printf!(uart, "\r\nVerifying...\r\n");
+
         for i in 0..FILL_SIZE {
-            let v = io::read(0x4000_0000 + i * 4);
+            if i % (1024 * 1024 * 16) == 0 {
+                printf!(uart, "\r\nAt 0x%x\r\n", FILL_BASE + i * 4);
+            }
+            if i % (1024 * 1024) == 0 {
+                uart.put_char(b'.');
+            }
+
+            let v = io::read(FILL_BASE + i * 4);
             if v != 0xdeadbeef {
-                printf!(uart, "Test failed at 0x%x (0x%x)\r\n", i as u32, v as u32);
+                printf!(uart, "Test failed: *0x%x = 0x%x\r\n", i as u32, v as u32);
+                break;
             }
         }
+
+        printf!(uart, "\r\nOK\r\n");
+        */
     }
 
     pub fn set_cpu_1500mhz(&mut self) {

@@ -28,7 +28,8 @@ pub struct UART {
 pub enum FormatArg<'a> {
     I32(i32),
     U32(u32),
-    Str(&'a str)
+    Str(&'a str),
+    Char(char)
 }
 
 impl From<u32> for FormatArg<'_> {
@@ -46,6 +47,12 @@ impl From<i32> for FormatArg<'_> {
 impl<'a> From<&'a str> for FormatArg<'a> {
     fn from(item: &'a str) -> Self {
         FormatArg::Str(item)
+    }
+}
+
+impl<'a> From<char> for FormatArg<'_> {
+    fn from(item: char) -> Self {
+        FormatArg::Char(item)
     }
 }
 
@@ -72,6 +79,7 @@ impl UART {
 
         unsafe {
             io::set_bit(self.base + LCR, LCR_DLAB, true);
+            io::set_bit(self.base + 0x08, 0, true);
             io::write(self.base + IER, 0);
             io::write(self.base + DLL, SYS_FREQ * 1000 * 1000 / 16 / baud);
             io::write(self.base + LCR, mode);
@@ -135,7 +143,7 @@ impl UART {
         let mut f = false;
 
         if val == 0 {
-            self.put_char('0' as u8);
+            self.put_char(b'0');
             return;
         }
 
@@ -143,11 +151,11 @@ impl UART {
             let x = ((val / n) % 10) as u8;
 
             if x > 0 || f {
-                self.put_char('0' as u8 + x);
+                self.put_char(b'0' + x);
                 f = true;
             }
 
-            n = n / 10;
+            n /=  10;
         }
     }
 
@@ -164,12 +172,12 @@ impl UART {
         self.put_char((hexchar[((val >> 12) & 0x0f) as usize]) as u8);
         self.put_char((hexchar[((val >>  8) & 0x0f) as usize]) as u8);
         self.put_char((hexchar[((val >>  4) & 0x0f) as usize]) as u8);
-        self.put_char((hexchar[((val >>  0) & 0x0f) as usize]) as u8);
+        self.put_char((hexchar[((val      ) & 0x0f) as usize]) as u8);
     }
 
     pub fn write_i32(&mut self, val: i32) {
         if val < 0 {
-            self.put_char('-' as u8);
+            self.put_char(b'-');
         }
         self.write_u32(val.abs() as u32);
     }
@@ -182,7 +190,7 @@ impl UART {
             match c {
                 '%' => {
                     if let Some('%') = chars.peek() {
-                        self.put_char('%' as u8);
+                        self.put_char(b'%');
                         chars.next();
                         continue;
                     }
@@ -190,9 +198,8 @@ impl UART {
                     if let Some('x') = chars.peek() {
                         chars.next();
 
-                        match args.next() {
-                            Some(FormatArg::U32(x)) => self.write_hex(*x),
-                            _ => {}
+                        if let Some(FormatArg::U32(x)) = args.next() {
+                            self.write_hex(*x);
                         }
 
                         continue;
@@ -202,6 +209,7 @@ impl UART {
                         Some(FormatArg::I32(x)) => self.write_i32(*x),
                         Some(FormatArg::U32(x)) => self.write_u32(*x),
                         Some(FormatArg::Str(x)) => self.write_str(x),
+                        Some(FormatArg::Char(x)) => self.put_char(*x as u8),
                         None => {}
                     }
                 },
